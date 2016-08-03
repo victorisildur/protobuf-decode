@@ -1,21 +1,12 @@
 import expect from 'expect';
-import {calcGroupValue, byteArrToFieldMap, decode} from './protobuf';
+import {calcGroupValue, byteArrToFieldMap} from './byte_arr';
 
-const byteArr = {
-    '0': 8, '1': 48, '2': 16, '3': 0, '4': 24, '5': 228, '6': 47,
-    '7': 32, '8': 236, '9': 7
-};
+const byteArr = {"0":8,"1":38,"2":24,"3":210,"4":45,"5":40,"6":20,"7":48,"8":163,"9":19,"10":56,"11":202,"12":205,"13":30,"14":64,"15":208,"16":195,"17":229,"18":188,"19":5};
 
-const msgStruct = {
-    '1': 'today_walk',
-    '2': 'today_run',
-    '3': 'history_walk',
-    '4': 'history_run',
-    '5': 'today_duration',
-    '6': 'history_duration',
-    '7': 'total_time',
-    '8': 'cur_time'
-};
+const arr = [];
+for (let i in byteArr) {
+    arr.push(byteArr[i]);
+}
 
 expect(
     calcGroupValue([0x16, 0x1])
@@ -26,16 +17,22 @@ expect(
 ).toEqual(300);
 
 expect(
-    byteArrToFieldMap(byteArr)
-).toEqual({1: 48, 2: 0, 3: 6116, 4: 1004});
+    byteArrToFieldMap(arr)
+).toEqual({ 1: 38, 3: 5842, 5: 20, 6: 2467, 7: 501450, 8: 1469669840 });
+console.log('Byte_Arr Tests passed!');
+
+import msgPackage from './msg_struct';
+import protobuf from './protobuf';
 
 expect(
-    decode(byteArr, msgStruct)
+    protobuf.decode(arr, protobuf.build(msgPackage).Summary)
 ).toEqual({
-    'today_walk': 48,
-    'today_run': 0,
-    'history_walk': 6116,
-    'history_run': 1004
+    'today_walk': 38,
+    'history_walk': 5842,
+    'today_duration': 20,
+    'history_duration': 2467,
+    'total_time': 501450,
+    'cur_time': 1469669840
 });
 
-console.log('Tests passed!');
+console.log('Summary Message Decode Tests passed!');

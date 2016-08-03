@@ -1,76 +1,89 @@
-/* @func: 7位byte数组 -> varint值，用于把小端序字节转成Int
- * @param: byteArr{array}: 7位byte数组
- * @return: {int}
- */
-const calcGroupValue = (byteArr) => {
-    let intVal = 0;
-    for (let i = 0, l = byteArr.length; i < l; i++) {
-        intVal += byteArr[i] * Math.pow(2, i*7);
-    }
-    return intVal;
-};
+import {byteArrToNestedMap} from './byte_arr';
 
-/* @func: byte数组-> int32数组
- * @comment:
- * {0: 8, 1: 48} -> {1: 48}
+/* @func: Builder类
+ * @param: 
+ *     message{object} JSON格式message格式
+ *     builders{object} 前序message builders, key为message名
+ * @comment: 
+ *     this.fieldInfos{object}: {1: {id:1, name:'date', type:'uint32'}, ...}
+ *     this.builder{object}: {'Summary': builder, 'HistoryData': builder, ...}
  */
-const byteArrToFieldMap = (byteArr) => {
-    // 计算byte数组长度
-    if (typeof byteArr.length == 'undefined') {
-        let len = 0;
-        for (let i in byteArr) {
-            len ++;
-        }
-        byteArr.length = len;
+class Builder {
+    constructor(message, builders) {
+        this.name = message.name;
+        this.fieldInfos = {};
+        message.fields.forEach(field => {
+            this.fieldInfos[field.id] = field;
+        });
+        this.builders = builders;
     }
-    let isKey = true,
-        type = 0,
-        fieldNumber = 0,
-        byteGroup = [],
-        fieldMap = {};
-    for (let i=0; i< byteArr.length; i++) {
-        let byte = byteArr[i];
-        //console.log('byte[%d]: %d, isKey: %s', i, byte, isKey);
-        if (isKey) {
-            type = byte & 0x7; //低3位 -> wire type
-            fieldNumber = (byte >> 3) & 0x1f; //7-3位 -> fieldNumber
-            isKey = false;
-            byteGroup = [];
-        } else {
-            let msb = (byte >> 7) & 0x1,
-                val = byte & 0x7f;
-            byteGroup.push(val);
-            if (msb === 0) {
-                isKey = true; // 非key字节msb == 0, 说明该varint结束
-                fieldMap[fieldNumber] = calcGroupValue(byteGroup);
+    /* fieldMap -> message */
+    _isBasicType(type) {
+        let regex = /uint32|sint32|varint/;
+        return regex.test(type);
+    }
+    map(fieldMap) {
+        let map = {};
+        for (let fnum in fieldMap) {
+            let fieldInfo = this.fieldInfos[fnum];
+            if (!fieldInfo) {
+                throw new Error('Proto has not defined field number ' + fnum + ' for message ' + this.name);
+            }
+            if (this._isBasicType(fieldInfo.type)) {
+                // 原始类型
+                map[fieldInfo.name] = fieldMap[fnum];
+            } else {
+                // embedded元素
+                let type = fieldInfo.type;
+                if (!this.builders[type]) {
+                    throw new Error('Proto has not defined message type ' + type + ' for message ' + this.name);
+                }
+                map[fieldInfo.name] = fieldMap[fnum].map(fieldMapInArr => {
+                    return this.builders[type].map(fieldMapInArr);
+                });
             }
         }
-        //console.log('    fieldNumber: %d, type: %d', fieldNumber, type);
+        return map;
     }
-    return fieldMap;
+}
+
+/* @func: JSON package struct -> builders{object}
+ * @param: 
+ *     package{object} JSON格式proto package定义
+ * @return: 
+ *     builders{object} builders, key为message名
+ */
+const build = msgPackage => {
+    let builders = {};
+    msgPackage.messages.forEach(message => {
+        let builder = new Builder(message, builders);
+        builders[builder.name] = builder;
+    });
+    return builders;
 };
 
-/* @func: 字节数组 + 消息格式 -> 格式化消息
- * @param: 
- *    msgStruct{object}: 
- *      {  1: 'today_walk',
- *         2: 'today_run'... }
- *    byteArr{object}:
- *      { 0: 8, 1: 48, 2: 16 ...}
+
+
+/* @func: byteArr -> {'details': [{'date':0,...}...], 'tag': 0}
+ * @param:
+ *     byteArr{object}: byte数组
+ *     builder{Buider}: Builder类实例，对应具体message
  * @return:
- *    { 'today_walk': 48,
- *      'today_run': 0 ... }
+ *     {object}: 解好的message
  */
-const decode = (byteArr, msgStruct) => {
-    let fieldMap = byteArrToFieldMap(byteArr),
-        msg = {};
-    for (let fieldIndex in msgStruct) {
-        if (fieldMap.hasOwnProperty(fieldIndex)) {
-            let fieldName = msgStruct[fieldIndex];
-            msg[fieldName] = fieldMap[fieldIndex];
+const decode = (byteArr, builder) => {
+    var arr = byteArr;
+    if (!(byteArr instanceof Array)) {
+        arr = [];
+        for (let i in byteArr) {
+            arr.push(byteArr[i]);
         }
     }
-    return msg;
+    let map = byteArrToNestedMap(arr);
+    return builder.map(map);
 };
 
-export {calcGroupValue, byteArrToFieldMap, decode}
+export default {
+    build,
+    decode
+};
