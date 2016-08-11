@@ -1,4 +1,4 @@
-import {byteArrToNestedMap} from './byte_arr';
+import {byteArrToNestedMap, base64ToByteArr} from './byte_arr';
 
 /* @func: Builder类
  * @param: 
@@ -66,19 +66,27 @@ const build = msgPackage => {
 
 /* @func: byteArr -> {'details': [{'date':0,...}...], 'tag': 0}
  * @param:
- *     byteArr{object}: byte数组
+ *     byteArr{object}: byte数组, 或base64之后的字符串
  *     builder{Buider}: Builder类实例，对应具体message
  * @return:
  *     {object}: 解好的message
  */
 const decode = (byteArr, builder) => {
-    var arr = byteArr;
-    if (!(byteArr instanceof Array)) {
+    var arr = null;
+    if (typeof byteArr === 'string') {
+        let uint8Array = base64ToByteArr(byteArr);
+        arr = [];
+        for (let i = 0, l = uint8Array.length; i < l; i++) {
+            arr.push(uint8Array[i]);
+        }
+    } else if (!(byteArr instanceof Array)) {
         arr = [];
         for (let i in byteArr) {
             arr.push(byteArr[i]);
         }
     }
+    if (arr.length === 0)
+        throw new Error('decode arr is empty, byteArr:' + JSON.stringify(byteArr));
     let map = byteArrToNestedMap(arr);
     return builder.map(map);
 };

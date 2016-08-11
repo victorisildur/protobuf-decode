@@ -65,16 +65,16 @@ export const byteArrToNestedMap = (byteArr) => {
             wireType = byte & 0x7;
             // 7-3位 -> fieldNumber
             fieldNumber = (byte >> 3) & 0x1f;
-            console.log('    fieldNumber: %d, wireType: %d', fieldNumber, wireType);
+            // console.log('    fieldNumber: %d, wireType: %d', fieldNumber, wireType);
             isKey = false;
             i = i + 1;
         } else {
             if (wireType === 2) {
                 payload = byte;
-                console.log('    payload: %d', payload);
+                // console.log('    payload: %d', payload);
                 // payload是embedded element的长度，对它可以映射成fieldMap
                 let fieldMap = byteArrToFieldMap(byteArr.slice(i+1, i+1+payload));
-                console.log('    fieldMap: ', fieldMap);
+                // console.log('    fieldMap: ', fieldMap);
                 // embedded元素，生成的fieldMap，push到map对应项里
                 if (!map[fieldNumber])
                     map[fieldNumber] = [];
@@ -83,7 +83,7 @@ export const byteArrToNestedMap = (byteArr) => {
                 isKey = true;
             } else if (wireType === 0) {
                 let fieldMap = byteArrToFieldMap(byteArr.slice(i-1));
-                console.log('    fieldMap: ', fieldMap);
+                // console.log('    fieldMap: ', fieldMap);
                 // 非embedded元素，生成的fieldMap直接拼到map里
                 for (let k in fieldMap) {
                     map[k] = fieldMap[k];
@@ -93,4 +93,16 @@ export const byteArrToNestedMap = (byteArr) => {
         }
     }
     return map;
+};
+
+/* @func: 有概率输入是uint8Array base64后的字符串
+ */
+export const base64ToByteArr  = str => {
+    let raw = window.atob(str),
+        len = raw.length,
+        arr = new Uint8Array(new ArrayBuffer(len));
+    for (let i = 0; i<len; i++) {
+        arr[i] = raw.charCodeAt(i);
+    }
+    return arr;
 };

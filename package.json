@@ -1,6 +1,6 @@
 {
   "name": "protobuf-decode",
-  "version": "1.0.0",
+  "version": "0.0.3",
   "description": "extremely light-weight protobuf decode module, no larger than 5kB",
   "main": "protobuf.js",
   "scripts": {
